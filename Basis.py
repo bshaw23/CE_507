@@ -9,6 +9,7 @@ import unittest
 import numpy
 import sympy
 import scipy
+import scipy.special
 import math
 
 
@@ -37,7 +38,7 @@ def evaluateLagrangeBasis1D(variate, degree, basis_idx):
     L = 1
     for j in range(0, degree + 1):
         if j == basis_idx:
-            continue
+             continue
         else:
             L *= (variate - nodes[j]) / (control_node - nodes[j])
     return L
@@ -46,7 +47,7 @@ def evaluateLagrangeBasis1D(variate, degree, basis_idx):
 def evaluateBernsteinBasis1D(variate, degree, basis_idx):
     #change of basis from [-1,1] to [0,1]
     variate = (1 + variate) * 0.5
-    coeff = math.comb(degree, basis_idx)
+    coeff = scipy.special.comb(degree, basis_idx)
     B = coeff * (variate**(basis_idx)) * (1-variate)**(degree - basis_idx)
     return B
 
