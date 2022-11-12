@@ -47,6 +47,56 @@ def generateMesh1D(xmin, xmax, num_elems, degree):
             local_elem.append(i * degree + j)
         ien_array[i,:] = local_elem
     return node_coords, ien_array
+
+def generateMeshwithDictionary(xmin, xmax, degree):
+    num_elems = len(degree)
+    elem_boundaries = numpy.linspace( xmin, xmax, num_elems + 1)
+    ien_array = {}
+    node_coords = []
     
+    for elem_idx in range(0, num_elems):
+        elem_xmin = elem_boundaries[elem_idx]
+        elem_xmax = elem_boundaries[elem_idx]
+        elem_nodes = numpy.linspace(elem_xmin, elem_xmax, degree[elem_idx] + 1)
+        if elem_idx == 0:
+            node_ids = numpy.arange(0, degree[elem_idx] + 1)
+            node_coords.append(elem_nodes)
+        else:
+            start_node = ien_array[elem_idx -1][-1]
+            node_ids = numpy.arange(start_node, start_node + degree[elem_idx])
+            node_coords.append(elem_nodes[1:])
+        ien_array[elem_idx] = list(node_ids)
+    node_coords, ien_array
+    return node_coords, ien_array
+    
+def generateMesh(xmin, xmax, degree):
+    num_elems = len(degree)
+    node_coords = []
+    ien_array = []
+    elem_bound = numpy.linspace(xmin, xmax, num_elems + 1)
+    
+    counter0 = int(0)
+    elem_ien = []
+    for i in range(degree[0] + 1):
+        elem_ien.append(counter0)
+        counter0 += int(1)
+    ien_array.append(elem_ien)
+    
+    for j in range(num_elems):
+        elem_xmin = elem_bound[j]
+        elem_xmax = elem_bound[j+1]
+        elem_nodes = numpy.linspace(elem_xmin, elem_xmax, degree[j] + 1)
+        node_coords.append(elem_nodes)
+        
+        if j == 0:
+            continue
+        else: 
+            elem_ien = []
+            ien_array.append(elem_ien)
+            counter1 = ien_array[-2][-1]
+            for i in range(0, degree[j]+1):
+                ien_array[-1].append(counter1)
+                counter1 += int(1)
+    return node_coords, ien_array
 
     

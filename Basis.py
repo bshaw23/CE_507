@@ -32,7 +32,7 @@ def evalLegendreBasis1D(degree, variate):
 
         
         
-def evaluateLagrangeBasis1D(variate, degree, basis_idx):
+def evalLagrangeBasis1D(variate, degree, basis_idx):
     nodes = numpy.linspace(-1, 1, degree + 1)
     control_node = nodes[basis_idx]
     L = 1
@@ -44,7 +44,7 @@ def evaluateLagrangeBasis1D(variate, degree, basis_idx):
     return L
 
 
-def evaluateBernsteinBasis1D(variate, degree, basis_idx):
+def evalBernsteinBasis1D(variate, degree, basis_idx):
     #change of basis from [-1,1] to [0,1]
     variate = (1 + variate) * 0.5
     coeff = scipy.special.comb(degree, basis_idx)
