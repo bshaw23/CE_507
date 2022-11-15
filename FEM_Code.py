@@ -10,16 +10,16 @@ import matplotlib.pyplot as plt
 import scipy
 import Basis as basis
 import mesh 
-import quadrature as quad
 import Gram_Matrix_Basis as gram
 import Galerkin_OneElement as one_elem
 
 def computeSolution(target_fun, domain, degree, solution_basis):
-    M = assembleGramMatrix(domain, degree, solution_basis)
     xmin = domain[0]
     xmax = domain[1]
-    ien_array, node_coords = mesh.generateMesh(xmin, xmax, degree)
+    node_coords, ien_array = mesh.generateMesh(xmin, xmax, degree)
+    M = assembleGramMatrix(node_coords, ien_array, solution_basis)
     F = assembleForceVector(target_fun, ien_array, node_coords, solution_basis)
+    F = F.transpose()
     d = numpy.linalg.solve(M,F)
     #solution = d dotted with basis
     return d, node_coords, ien_array
@@ -79,22 +79,119 @@ def assembleForceVector(target_fun, ien_array, node_coords, solution_basis):
     F = Local_to_Global_FVector(F_list, degree_list)
     return F
 
-def evaluateSolutionAt( x, domain, coeff, solution_basis ):
-    degree = len( coeff ) - 1
+def evaluateSolutionAt( x, d_vector, node_coords, ien_array, solution_basis ):
     y = 0.0
-    new_x = gram.change_of_coords(domain, [-1,1], x)
-    for n in range( 0, len( coeff ) ):
-        if solution_basis == basis.evalLegendreBasis1D:
-            sol_basis = solution_basis(n, new_x)
+    domain = [node_coords[0][0], node_coords[-1][-1]]
+    num_elems = len(ien_array)
+    
+    elem_bound = numpy.linspace(domain[0], domain[1], num_elems + 1)
+    for i in range(num_elems):
+        if x>= elem_bound[i] and x <= elem_bound[i+1]:
+            elem_idx = i
         else:
-            sol_basis = solution_basis(variate = new_x, degree = degree, basis_idx = n)
-        y += coeff[n] * sol_basis 
+            continue
+    
+    degree = len(ien_array[elem_idx]) - 1
+    elem_domain = [node_coords[elem_idx][0], node_coords[elem_idx][-1]]
+    new_x = gram.change_of_coords(elem_domain, [-1,1], x)
+    for i in range(0, len(ien_array[elem_idx])):
+        d_idx = int(ien_array[elem_idx][i])
+        if solution_basis == basis.evalLegendreBasis1D:
+            basis_vec = solution_basis(i, new_x)
+        else: 
+            basis_vec = solution_basis(x, degree, i)
+            
+        y += basis_vec * d_vector[d_idx]
     return y
 
-def computeFitError( gold_coeff, test_coeff, domain, solution_basis ):
-    err_fun = lambda x: abs( evaluateSolutionAt( x, domain, gold_coeff, solution_basis ) - evaluateSolutionAt( x, domain, test_coeff, solution_basis ) )
-    abs_err, _ = scipy.integrate.quad( err_fun, domain[0], domain[1], epsrel = 1e-12, limit = 1000 )
-    return abs_err
+def computeFitError(target_fun, d_vector, node_coords, ien_array, solution_basis):
+    num_elems = len(ien_array)
+    xmin = node_coords[0][0]
+    xmax = node_coords[-1][-1]
+    domain = [xmin, xmax]
+    abs_err_fun = lambda x: abs(target_fun(x) - evaluateSolutionAt( x, d_vector, node_coords, ien_array, solution_basis))
+    fit_error, residual = scipy.integrate.quad( abs_err_fun, domain[0], domain[1], epsrel = 1e-12, limit = num_elems * 100 )
+    
+    return fit_error, residual
+
+
+def plotCompareGoldTestSolution2( gold_coeff, d_vector, node_coords, ien_array, solution_basis ):
+    domain = [node_coords[0][0], node_coords[-1][-1]]
+    x = numpy.linspace( domain[0], domain[1], 1000 )
+    yg = numpy.zeros( 1000 )
+    yt = numpy.zeros( 1000 )
+    for i in range(0, len(x) ):
+        yg[i] = evaluateSolutionAt( x[i], d_vector, node_coords, ien_array, solution_basis )
+        yt[i] = evaluateSolutionAt( x[i], d_vector, node_coords, ien_array, solution_basis )
+    plt.plot( x, yg )
+    plt.plot( x, yt )
+    plt.show()
+
+def plotCompareFunToTestSolution2( fun, d_vector, node_coords, ien_array, solution_basis ):
+    domain = [node_coords[0][0], node_coords[-1][-1]]
+    x = numpy.linspace( domain[0], domain[1], 1000 )
+    y = numpy.zeros( 1000 )
+    yt = numpy.zeros( 1000 )
+    for i in range(0, len(x) ):
+        y[i] = fun( x[i] )
+        yt[i] = evaluateSolutionAt( x[i], d_vector, node_coords, ien_array, solution_basis )
+    plt.plot( x, y )
+    plt.plot( x, yt )
+    plt.show()
+
+class Test_computeSolution( unittest.TestCase ):
+    def test_cubic_polynomial_target( self ):
+        # print( "POLY TEST" )
+        target_fun = lambda x: x**3 - (8/5)*x**2 + (3/5)*x
+        domain = [ 0, 1 ]
+        degree = [2]*2
+        solution_basis = basis.evalBernsteinBasis1D
+        test_sol_coeff, node_coords, ien_array = computeSolution( target_fun = target_fun, domain = domain, degree = degree, solution_basis =solution_basis )
+        gold_sol_coeff = numpy.array( [ 1.0 / 120.0, 9.0 / 80.0, 1.0 / 40.0, -1.0 / 16.0, -1.0 / 120.0 ] )
+        abs_err, rel_err = computeFitError( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
+        plotCompareGoldTestSolution2( gold_sol_coeff, test_sol_coeff, node_coords, ien_array, solution_basis )
+        plotCompareFunToTestSolution2( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
+        self.assertTrue( numpy.allclose( gold_sol_coeff, test_sol_coeff ) )
+        self.assertAlmostEqual( first = rel_err, second = 0, delta = 1e-1 )
+
+    def test_sin_target( self ):
+        # print( "SIN TEST" )
+        target_fun = lambda x: numpy.sin( numpy.pi * x )
+        domain = [ 0, 1 ]
+        degree = [2]*2
+        solution_basis = basis.evalBernsteinBasis1D
+        test_sol_coeff, node_coords, ien_array = computeSolution( target_fun = target_fun, domain = domain, degree = degree, solution_basis = solution_basis )
+        gold_sol_coeff = numpy.array( [ -0.02607008, 0.9185523, 1.01739261, 0.9185523, -0.02607008 ] )
+        abs_err, rel_err = computeFitError( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
+        plotCompareGoldTestSolution2( gold_sol_coeff, test_sol_coeff, node_coords, ien_array, solution_basis )
+        plotCompareFunToTestSolution2( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
+        self.assertAlmostEqual( first = rel_err, second = 0, delta = 1e-1 )
+        
+    def test_erfc_target( self ):
+        # print( "ERFC TEST" )
+        target_fun = lambda x: numpy.real( scipy.special.erfc( x ) )
+        domain = [ -2, 2 ]
+        degree = [3]*2
+        solution_basis = basis.evalBernsteinBasis1D
+        test_sol_coeff, node_coords, ien_array = computeSolution( target_fun = target_fun, domain = domain, degree = degree, solution_basis = solution_basis )
+        gold_sol_coeff = numpy.array( [ 1.98344387, 2.0330054, 1.86372084, 1., 0.13627916, -0.0330054, 0.01655613 ] )
+        abs_err, rel_err = computeFitError( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
+        plotCompareGoldTestSolution2( gold_sol_coeff, test_sol_coeff, node_coords, ien_array, solution_basis )
+        plotCompareFunToTestSolution2( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
+        self.assertAlmostEqual( first = rel_err, second = 0, delta = 1e-2 )
+    
+    def test_exptx_target( self ):
+        # print( "EXPT TEST" )
+        target_fun = lambda x: float( numpy.real( float( x )**float( x ) ) )
+        domain = [ -1, 1 ]
+        degree = [5]*2
+        solution_basis = basis.evalBernsteinBasis1D
+        test_sol_coeff, node_coords, ien_array = computeSolution( target_fun = target_fun, domain = domain, degree = degree, solution_basis = solution_basis )
+        gold_sol_coeff = ( [ -1.00022471, -1.19005562, -0.9792369, 0.70884334, 1.73001439, 0.99212064, 0.44183573, 0.87014465, 0.5572111, 0.85241908, 0.99175228 ] )
+        abs_err, rel_err = computeFitError( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
+        plotCompareGoldTestSolution2( gold_sol_coeff, test_sol_coeff, node_coords, ien_array, solution_basis )
+        plotCompareFunToTestSolution2( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
+        self.assertAlmostEqual( first = rel_err, second = 0, delta = 1e-2 )
 
 class Test_assembleGramMatrix( unittest.TestCase ):
     def test_linear_lagrange( self ):
@@ -151,59 +248,6 @@ class Test_assembleGramMatrix( unittest.TestCase ):
         gold_gram_matrix = numpy.array( [ [1/14, 1/28, 1/70, 1/280, 0, 0, 0 ], [1/28, 3/70, 9/280, 1/70, 0, 0, 0 ], [1/70, 9/280, 3/70, 1/28, 0, 0, 0 ], [1/280, 1/70, 1/28, 1/7, 1/28, 1/70, 1/280], [0, 0, 0, 1/28, 3/70, 9/280, 1/70], [0, 0, 0, 1/70, 9/280, 3/70, 1/28], [0, 0, 0, 1/280, 1/70, 1/28, 1/14 ] ] )
         self.assertTrue( numpy.allclose( test_gram_matrix, gold_gram_matrix ) )
         
-class Test_computeSolution( unittest.TestCase ):
-    def test_cubic_polynomial_target( self ):
-        # print( "POLY TEST" )
-        target_fun = lambda x: x**3 - (8/5)*x**2 + (3/5)*x
-        domain = [ 0, 1 ]
-        degree = [2]*2
-        solution_basis = basis.evalBernsteinBasis1D
-        test_sol_coeff, node_coords, ien_array = computeSolution( target_fun = target_fun, domain = domain, degree = degree, solution_basis =solution_basis )
-        gold_sol_coeff = numpy.array( [ 1.0 / 120.0, 9.0 / 80.0, 1.0 / 40.0, -1.0 / 16.0, -1.0 / 120.0 ] )
-        abs_err, rel_err = computeFitError( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
-        plotCompareGoldTestSolution( gold_sol_coeff, test_sol_coeff, node_coords, ien_array, solution_basis )
-        plotCompareFunToTestSolution( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
-        self.assertTrue( numpy.allclose( gold_sol_coeff, test_sol_coeff ) )
-        self.assertAlmostEqual( first = rel_err, second = 0, delta = 1e-1 )
-
-    def test_sin_target( self ):
-        # print( "SIN TEST" )
-        target_fun = lambda x: numpy.sin( numpy.pi * x )
-        domain = [ 0, 1 ]
-        degree = [2]*2
-        solution_basis = basis.evalBernsteinBasis1D
-        test_sol_coeff, node_coords, ien_array = computeSolution( target_fun = target_fun, domain = domain, degree = degree, solution_basis = solution_basis )
-        gold_sol_coeff = numpy.array( [ -0.02607008, 0.9185523, 1.01739261, 0.9185523, -0.02607008 ] )
-        abs_err, rel_err = computeFitError( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
-        plotCompareGoldTestSolution( gold_sol_coeff, test_sol_coeff, node_coords, ien_array, solution_basis )
-        plotCompareFunToTestSolution( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
-        self.assertAlmostEqual( first = rel_err, second = 0, delta = 1e-1 )
-        
-    def test_erfc_target( self ):
-        # print( "ERFC TEST" )
-        target_fun = lambda x: numpy.real( scipy.special.erfc( x ) )
-        domain = [ -2, 2 ]
-        degree = [3]*2
-        solution_basis = basis.evalBernsteinBasis1D
-        test_sol_coeff, node_coords, ien_array = computeSolution( target_fun = target_fun, domain = domain, degree = degree, solution_basis = solution_basis )
-        gold_sol_coeff = numpy.array( [ 1.98344387, 2.0330054, 1.86372084, 1., 0.13627916, -0.0330054, 0.01655613 ] )
-        abs_err, rel_err = computeFitError( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
-        plotCompareGoldTestSolution( gold_sol_coeff, test_sol_coeff, node_coords, ien_array, solution_basis )
-        plotCompareFunToTestSolution( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
-        self.assertAlmostEqual( first = rel_err, second = 0, delta = 1e-2 )
-    
-    def test_exptx_target( self ):
-        # print( "EXPT TEST" )
-        target_fun = lambda x: float( numpy.real( float( x )**float( x ) ) )
-        domain = [ -1, 1 ]
-        degree = [5]*2
-        solution_basis = basis.evalBernsteinBasis1D
-        test_sol_coeff, node_coords, ien_array = computeSolution( target_fun = target_fun, domain = domain, degree = degree, solution_basis = solution_basis )
-        gold_sol_coeff = ( [ -1.00022471, -1.19005562, -0.9792369, 0.70884334, 1.73001439, 0.99212064, 0.44183573, 0.87014465, 0.5572111, 0.85241908, 0.99175228 ] )
-        abs_err, rel_err = computeFitError( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
-        plotCompareGoldTestSolution( gold_sol_coeff, test_sol_coeff, node_coords, ien_array, solution_basis )
-        plotCompareFunToTestSolution( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
-        self.assertAlmostEqual( first = rel_err, second = 0, delta = 1e-2 )
         
 class Test_assembleForceVector( unittest.TestCase ):
     def test_lagrange_const_force_fun( self ):
