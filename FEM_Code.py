@@ -22,6 +22,7 @@ def computeSolution(target_fun, domain, degree, solution_basis):
     F = F.transpose()
     d = numpy.linalg.solve(M,F)
     #solution = d dotted with basis
+    print (d)
     return d, node_coords, ien_array
 
 
@@ -99,7 +100,7 @@ def evaluateSolutionAt( x, d_vector, node_coords, ien_array, solution_basis ):
         if solution_basis == basis.evalLegendreBasis1D:
             basis_vec = solution_basis(i, new_x)
         else: 
-            basis_vec = solution_basis(x, degree, i)
+            basis_vec = solution_basis(new_x, degree, i)
             
         y += basis_vec * d_vector[d_idx]
     return y
@@ -145,7 +146,7 @@ class Test_computeSolution( unittest.TestCase ):
         target_fun = lambda x: x**3 - (8/5)*x**2 + (3/5)*x
         domain = [ 0, 1 ]
         degree = [2]*2
-        solution_basis = basis.evalBernsteinBasis1D
+        solution_basis = basis.evalBernsteinBasis1Dold
         test_sol_coeff, node_coords, ien_array = computeSolution( target_fun = target_fun, domain = domain, degree = degree, solution_basis =solution_basis )
         gold_sol_coeff = numpy.array( [ 1.0 / 120.0, 9.0 / 80.0, 1.0 / 40.0, -1.0 / 16.0, -1.0 / 120.0 ] )
         abs_err, rel_err = computeFitError( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
@@ -159,7 +160,7 @@ class Test_computeSolution( unittest.TestCase ):
         target_fun = lambda x: numpy.sin( numpy.pi * x )
         domain = [ 0, 1 ]
         degree = [2]*2
-        solution_basis = basis.evalBernsteinBasis1D
+        solution_basis = basis.evalBernsteinBasis1Dold
         test_sol_coeff, node_coords, ien_array = computeSolution( target_fun = target_fun, domain = domain, degree = degree, solution_basis = solution_basis )
         gold_sol_coeff = numpy.array( [ -0.02607008, 0.9185523, 1.01739261, 0.9185523, -0.02607008 ] )
         abs_err, rel_err = computeFitError( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
@@ -172,7 +173,7 @@ class Test_computeSolution( unittest.TestCase ):
         target_fun = lambda x: numpy.real( scipy.special.erfc( x ) )
         domain = [ -2, 2 ]
         degree = [3]*2
-        solution_basis = basis.evalBernsteinBasis1D
+        solution_basis = basis.evalBernsteinBasis1Dold
         test_sol_coeff, node_coords, ien_array = computeSolution( target_fun = target_fun, domain = domain, degree = degree, solution_basis = solution_basis )
         gold_sol_coeff = numpy.array( [ 1.98344387, 2.0330054, 1.86372084, 1., 0.13627916, -0.0330054, 0.01655613 ] )
         abs_err, rel_err = computeFitError( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
@@ -185,7 +186,7 @@ class Test_computeSolution( unittest.TestCase ):
         target_fun = lambda x: float( numpy.real( float( x )**float( x ) ) )
         domain = [ -1, 1 ]
         degree = [5]*2
-        solution_basis = basis.evalBernsteinBasis1D
+        solution_basis = basis.evalBernsteinBasis1Dold
         test_sol_coeff, node_coords, ien_array = computeSolution( target_fun = target_fun, domain = domain, degree = degree, solution_basis = solution_basis )
         gold_sol_coeff = ( [ -1.00022471, -1.19005562, -0.9792369, 0.70884334, 1.73001439, 0.99212064, 0.44183573, 0.87014465, 0.5572111, 0.85241908, 0.99175228 ] )
         abs_err, rel_err = computeFitError( target_fun, test_sol_coeff, node_coords, ien_array, solution_basis )
@@ -228,7 +229,7 @@ class Test_assembleGramMatrix( unittest.TestCase ):
         domain = [ 0, 1 ]
         degree = [ 1, 1 ]
         node_coords, ien_array = mesh.generateMesh( domain[0], domain[1], degree )
-        test_gram_matrix = assembleGramMatrix( node_coords = node_coords, ien_array = ien_array, solution_basis = basis.evalBernsteinBasis1D )
+        test_gram_matrix = assembleGramMatrix( node_coords = node_coords, ien_array = ien_array, solution_basis = basis.evalBernsteinBasis1Dold )
         gold_gram_matrix = numpy.array( [ [1/6, 1/12, 0], [1/12, 1/3, 1/12], [0, 1/12, 1/6] ] )
         self.assertTrue( numpy.allclose( test_gram_matrix, gold_gram_matrix ) )
 
@@ -236,7 +237,7 @@ class Test_assembleGramMatrix( unittest.TestCase ):
         domain = [ 0, 1 ]
         degree = [ 2, 2 ]
         node_coords, ien_array = mesh.generateMesh( domain[0], domain[1], degree )
-        test_gram_matrix = assembleGramMatrix( node_coords = node_coords, ien_array = ien_array, solution_basis = basis.evalBernsteinBasis1D )
+        test_gram_matrix = assembleGramMatrix( node_coords = node_coords, ien_array = ien_array, solution_basis = basis.evalBernsteinBasis1Dold )
         gold_gram_matrix = numpy.array( [ [1/10, 1/20, 1/60, 0, 0 ], [1/20, 1/15, 1/20, 0, 0 ], [1/60, 1/20, 1/5, 1/20, 1/60], [0, 0, 1/20, 1/15, 1/20], [0, 0, 1/60, 1/20, 1/10] ] )
         self.assertTrue( numpy.allclose( test_gram_matrix, gold_gram_matrix ) )
     
@@ -244,7 +245,7 @@ class Test_assembleGramMatrix( unittest.TestCase ):
         domain = [ 0, 1 ]
         degree = [ 3, 3 ]
         node_coords, ien_array = mesh.generateMesh( domain[0], domain[1], degree )
-        test_gram_matrix = assembleGramMatrix( node_coords = node_coords, ien_array = ien_array, solution_basis = basis.evalBernsteinBasis1D )
+        test_gram_matrix = assembleGramMatrix( node_coords = node_coords, ien_array = ien_array, solution_basis = basis.evalBernsteinBasis1Dold )
         gold_gram_matrix = numpy.array( [ [1/14, 1/28, 1/70, 1/280, 0, 0, 0 ], [1/28, 3/70, 9/280, 1/70, 0, 0, 0 ], [1/70, 9/280, 3/70, 1/28, 0, 0, 0 ], [1/280, 1/70, 1/28, 1/7, 1/28, 1/70, 1/280], [0, 0, 0, 1/28, 3/70, 9/280, 1/70], [0, 0, 0, 1/70, 9/280, 3/70, 1/28], [0, 0, 0, 1/280, 1/70, 1/28, 1/14 ] ] )
         self.assertTrue( numpy.allclose( test_gram_matrix, gold_gram_matrix ) )
         
@@ -282,7 +283,7 @@ class Test_assembleForceVector( unittest.TestCase ):
         degree = [ 3, 3 ]
         target_fun = lambda x: numpy.pi
         node_coords, ien_array = mesh.generateMesh( domain[0], domain[1], degree )
-        test_force_vector = assembleForceVector( target_fun = target_fun, node_coords = node_coords, ien_array = ien_array, solution_basis = basis.evalBernsteinBasis1D )
+        test_force_vector = assembleForceVector( target_fun = target_fun, node_coords = node_coords, ien_array = ien_array, solution_basis = basis.evalBernsteinBasis1Dold )
         gold_force_vector = numpy.array( [ numpy.pi / 8.0, numpy.pi / 8.0, numpy.pi / 8.0, numpy.pi / 4.0, numpy.pi / 8.0, numpy.pi / 8.0, numpy.pi / 8.0 ] )
         self.assertTrue( numpy.allclose( test_force_vector, gold_force_vector ) )
     
@@ -291,7 +292,7 @@ class Test_assembleForceVector( unittest.TestCase ):
         degree = [ 3, 3 ]
         target_fun = lambda x: 2*x + numpy.pi
         node_coords, ien_array = mesh.generateMesh( domain[0], domain[1], degree )
-        test_force_vector = assembleForceVector( target_fun = target_fun, node_coords = node_coords, ien_array = ien_array, solution_basis = basis.evalBernsteinBasis1D )
+        test_force_vector = assembleForceVector( target_fun = target_fun, node_coords = node_coords, ien_array = ien_array, solution_basis = basis.evalBernsteinBasis1Dold)
         gold_force_vector = numpy.array( [ 0.41769908, 0.44269908, 0.46769908, 1.03539816, 0.56769908, 0.59269908, 0.61769908 ] )
         self.assertTrue( numpy.allclose( test_force_vector, gold_force_vector ) )
     
@@ -300,7 +301,7 @@ class Test_assembleForceVector( unittest.TestCase ):
         degree = [ 3, 3 ]
         target_fun = lambda x: x**2.0
         node_coords, ien_array = mesh.generateMesh( domain[0], domain[1], degree )
-        test_force_vector = assembleForceVector( target_fun = target_fun, node_coords = node_coords, ien_array = ien_array, solution_basis = basis.evalBernsteinBasis1D )
+        test_force_vector = assembleForceVector( target_fun = target_fun, node_coords = node_coords, ien_array = ien_array, solution_basis = basis.evalBernsteinBasis1Dold )
         gold_force_vector = numpy.array( [ 1/480, 1/160, 1/80, 1/15, 1/16, 13/160, 49/480 ] )
         self.assertTrue( numpy.allclose( test_force_vector, gold_force_vector ) )
         

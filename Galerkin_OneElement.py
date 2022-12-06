@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 
 def assembleGramMatrix(domain, degree, solution_basis):
     n = int(numpy.ceil((2*degree+1)/2))
+    M = numpy.zeros(((degree+1),(degree+1)))
     if solution_basis == basis.evalBernsteinBasis1D:
         M = gram.assembleGramMatrixBernstien(domain, degree, n)
     elif solution_basis == basis.evalLegendreBasis1D:
@@ -27,6 +28,7 @@ def assembleGramMatrix(domain, degree, solution_basis):
 
 def assembleForceVector(target_fun, domain, degree, solution_basis):
     n = int(numpy.ceil((2*degree+1)/2))
+    F = numpy.zeros((degree + 1))
     if solution_basis == basis.evalBernsteinBasis1D:
         F = gram.assembleForceVectorBernstien(target_fun, domain, degree, n)
     elif solution_basis == basis.evalLegendreBasis1D:
@@ -46,12 +48,15 @@ def evaluateSolutionAt( x, domain, coeff, solution_basis ):
     degree = len( coeff ) - 1
     y = 0.0
     new_x = gram.change_of_coords(domain, [-1,1], x)
-    for n in range( 0, len( coeff ) ):
+    sol_basis = numpy.zeros((len(coeff)))
+    for n in range( 0, (len( coeff ))):
         if solution_basis == basis.evalLegendreBasis1D:
-            sol_basis = solution_basis(n, new_x)
+            sol_basis[n] = solution_basis(n, new_x)
+        elif solution_basis == basis.evalBernsteinBasis1D:
+            sol_basis[n] = basis.evalBernsteinBasis1D(new_x, degree, [-1,1], n)
         else:
-            sol_basis = solution_basis(variate = new_x, degree = degree, basis_idx = n)
-        y += coeff[n] * sol_basis 
+            sol_basis[n] = solution_basis(variate = new_x, degree = degree, basis_idx = n)
+    y += numpy.dot(coeff, sol_basis)
     return y
 
 def computeFitError( gold_coeff, test_coeff, domain, solution_basis ):

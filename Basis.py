@@ -11,6 +11,7 @@ import sympy
 import scipy
 import scipy.special
 import math
+import Gram_Matrix_Basis as gram
 
 
 def evaluateMonomialBasis1D(degree, variate):
@@ -44,16 +45,27 @@ def evalLagrangeBasis1D(variate, degree, basis_idx):
     return L
 
 
-def evalBernsteinBasis1D(variate, degree, basis_idx):
-    #change of basis from [-1,1] to [0,1]
-    variate = (1 + variate) * 0.5
+def evalBernsteinBasis1D(variate, degree, domain, basis_idx):
+    variate = gram.change_of_coords(domain, [0,1], variate)
     coeff = scipy.special.comb(degree, basis_idx)
     B = coeff * (variate**(basis_idx)) * (1-variate)**(degree - basis_idx)
     return B
 
+def evalBernsteinBasis1Dold(variate, degree, basis_idx):
+    variate = (variate + 1) * 0.5
+    coeff = scipy.special.comb(degree, basis_idx)
+    B = coeff * (variate**(basis_idx)) * (1-variate)**(degree - basis_idx)
+    return B
 
-
-
+def evalUSplineBasis1D(variate, degree, domain, elem_ext_operator):
+    x = gram.change_of_coords(domain, [-1,1], variate)
+    basis_vector = numpy.zeros((degree+1))
+    for i in range(0, degree + 1):
+        basis_vector[i] = evalBernsteinBasis1D(x, degree, i)
+    
+    U = numpy.matmul(elem_ext_operator, basis_vector)
+    
+    return U
 
 
 class Test_evaluateMonomialBasis1D( unittest.TestCase ):

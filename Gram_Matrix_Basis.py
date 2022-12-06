@@ -33,8 +33,8 @@ def assembleGramMatrixBernstien(domain, degree, n):
     for i in range(degree+1):
         for j in range(degree+1):
             for q in range(len(qp)):
-                N_A = basis.evalBernsteinBasis1D(qp[q], degree, i)
-                N_B = basis.evalBernsteinBasis1D(qp[q], degree, j)
+                N_A = basis.evalBernsteinBasis1Dold(qp[q], degree, i)
+                N_B = basis.evalBernsteinBasis1Dold(qp[q], degree, j)
                 M[i,j] += N_A*N_B*w[q]*jacob
     return M
 
@@ -71,7 +71,7 @@ def assembleForceVectorBernstien(target_fun, domain, degree, n):
     
     for i in range(degree+1):
         for q in range(degree+1):
-            N_A = basis.evalBernsteinBasis1D(qp[q], degree, i)
+            N_A = basis.evalBernsteinBasis1Dold(qp[q], degree, i)
             F[i] += N_A * target_fun(change_of_coords(domain_old, domain_new, qp[q])) * w[q]*jacob
     return F 
 
