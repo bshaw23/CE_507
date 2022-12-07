@@ -26,7 +26,8 @@ def assembleSolution( coeff, problem, uspline_bext ):
 
 def applyDisplacement( problem, stiffness_matrix, force_vector, uspline_bext ):
     displacment = problem["displacement"]["value"]
-    position
+    position = problem["displacement"]["value"]
+    
     return stiffness_matrix, force_vector
 
 def applyTraction( problem, force_vector, uspline_bext ):

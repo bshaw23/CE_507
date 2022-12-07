@@ -424,4 +424,4 @@ class test_assembleStiffnessMatrix( unittest.TestCase ):
                                                  [  0.0,       -2.0 / 3.0, -2.0,        8.0 / 3.0 ] ] )
               self.assertTrue( numpy.allclose( test_stiffness_matrix, gold_stiffness_matrix ) )
 
-# unittest.main()
+unittest.main()
