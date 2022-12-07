@@ -54,13 +54,10 @@ def assembleStiffnessMatrix(problem, uspline_bext):
     E = problem["elastic_modulus"]
     A = problem["area"]
     num_elems = bext.getNumElems(uspline_bext)
-    degree_list = []
     K_list = []
-    continuity = uspline_bext["continuity"]
     
     for i in range(0,num_elems):
         degree = bext.getElementDegree(uspline_bext, i)
-        degree_list.append(degree)
         n = int(numpy.ceil((2*degree+1)/2))
         qp,w = quadrature.computeGaussLegendreQuadrature(n)
         domain = bext.getElementDomain(uspline_bext, i)
@@ -68,37 +65,77 @@ def assembleStiffnessMatrix(problem, uspline_bext):
         
         K = numpy.zeros((degree+1,degree+1))
         jacob = (gram.jacobian([-1,1], domain))**(-1)
-        for j in range(degree+1):
-            for k in range(degree+1):
+        for a in range(degree+1):
+            for b in range(degree+1):
                 for q in range(len(qp)):
-                    N_A = evalSplineBasisDeriv1D(extraction_operator, j, 1, domain, qp[q])
-                    N_B = evalSplineBasisDeriv1D(extraction_operator, k, 1, domain, qp[q])
-                    K[i,j] += N_A*N_B*w[q]*jacob
+                    N_A = evalSplineBasisDeriv1D(extraction_operator, a, 1, [-1,1], qp[q])
+                    N_B = evalSplineBasisDeriv1D(extraction_operator, b, 1, [-1,1], qp[q])
+                    K[a,b] += E * A * N_A * N_B * w[q] * jacob
                     
         K_list.append(K)
-    K = local_to_globalK(K_list, degree_list, continuity)
+        
+    K = local_to_globalK(K_list, uspline_bext)
     return K
 
-def local_to_globalK(K_list, degree, continuity):
-    del continuity[0]
-    del continuity[-1]
-    dim = sum(degree) - sum(continuity) + 1
+def local_to_globalK(K_list, uspline_bext):
+    dim = bext.getNumNodes(uspline_bext)
     K = numpy.zeros((dim,dim))
-    
-    for i in range(len(K_list)):
-        for a in range(0, degree[i]+1):
-            if i == 0:
-                A = i * degree[i] + a
-            else:
-                A = i * degree[i] + a - continuity[i-1]
-            for b in range(degree[i]+1):
-                if i == 0:
-                    B = i * degree[i] + b
-                else:
-                    B = i * degree[i] + b - continuity[i-1]
-                K[A,B] += K_list[i][a,b]
-    
+    for k in range(len(K_list)):
+        degree = bext.getElementDegree(uspline_bext, k)
+        for a in range(0, degree + 1):
+            A = bext.getElementNodeIds(uspline_bext, k)[a]
+            for b in range(0, degree + 1):
+                B = bext.getElementNodeIds(uspline_bext, k)[b]
+                K[A,B] += K_list[k][a,b]
+                
     return K
+
+# =============================================================================
+# Assemble Force Vector 
+# =============================================================================
+def assembleForceVector(target_fun, node_coords, ien_array, solution_basis):
+    num_elems = len(ien_array)
+    degree_list = []
+    F_list = []
+    
+    for i in range(0,num_elems):
+        degree = int(len(ien_array[i])-1)
+        degree_list.append(degree)
+        n = int(numpy.ceil((2*degree+1)/2))
+        xi_pq, w_pq = quadrature.computeGaussLegendreQuadrature(n)
+        domain = [node_coords[i][0],node_coords[i][-1]]
+        
+        F_term = numpy.zeros((degree+1))
+        for A in range(0,degree+1):
+            for q in range(0,len(xi_pq)):
+                if solution_basis == basis.evalBernsteinBasis1D:
+                    N_A = basis.evalBernsteinBasis1D(xi_pq[q], degree, [-1,1], A)
+                    jacob = gram.jacobian([-1,1], domain)
+                elif solution_basis == basis.evalLegendreBasis1D:
+                    N_A = basis.evalLegendreBasis1D(A, xi_pq[q])
+                    jacob = gram.jacobian([-1,1], domain)
+                elif solution_basis == basis.evaluateLagrangeBasis1D:
+                    N_A = basis.evaluateLagrangeBasis1D(xi_pq[q], degree, A)
+                    jacob = gram.jacobian([-1,1], domain)
+                
+                F_term[A] += N_A * target_fun(gram.change_of_coords([-1,1],domain,xi_pq[q])) * w_pq[q] * jacob 
+        F_list.append(F_term)
+    F = Local_to_Global_F_Vector(F_list,degree_list)
+    return F
+
+# =============================================================================
+#  Local to Global F Vector
+# =============================================================================
+def Local_to_Global_F_Vector(F_list,degree):
+    dim = sum(degree) + 1
+    F = numpy.zeros((dim))
+    
+    for i in range(0,len(F_list)):
+        for a in range(0,degree[i]+1):
+            A = i * (degree[i]) + a
+            F[A] += F_list[i][a]
+    
+    return F
 
 # class Test_evalBernsteinBasisDeriv( unittest.TestCase ):
 #         def test_constant_at_nodes( self ):
@@ -387,4 +424,4 @@ class test_assembleStiffnessMatrix( unittest.TestCase ):
                                                  [  0.0,       -2.0 / 3.0, -2.0,        8.0 / 3.0 ] ] )
               self.assertTrue( numpy.allclose( test_stiffness_matrix, gold_stiffness_matrix ) )
 
-unittest.main()
+# unittest.main()

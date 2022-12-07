@@ -52,7 +52,7 @@ def build_uspline():
   cubit.cmd( "fit uspline 1" )
 
 def export_uspline( filename ):
-  cubit.cmd( f"export uspline 1 json ’{filename}’" )
+  cubit.cmd( f"export uspline 1 json '{filename}'" )
 
 ## UTILITY FUNCTIONS
 def get_num_elems():
